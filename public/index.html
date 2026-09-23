@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>무역왕!</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚢</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- 첫 화면 -->
+  <main id="landing" class="landing" hidden>
+    <section class="landing-hero">
+      <div class="hero-ship" aria-hidden="true">🚢</div>
+      <h1 class="logo">무역왕!</h1>
+      <p class="hero-sub">여섯 나라가 서로 부족한 물건을 사고팔며<br />누가 먼저 무역 강국이 되는지 겨뤄요.</p>
+    </section>
+
+    <section class="landing-cards">
+      <form id="joinForm" class="panel join-panel" autocomplete="off">
+        <h2>모둠으로 입장하기</h2>
+        <label>방 코드
+          <input id="joinRoom" inputmode="numeric" maxlength="4" placeholder="예) 4821" required />
+        </label>
+        <label>모둠 코드
+          <input id="joinGroup" inputmode="numeric" maxlength="4" placeholder="선생님께 받은 4자리" required />
+        </label>
+        <p id="joinError" class="form-error" role="alert"></p>
+        <button class="btn btn-go" type="submit">우리 나라로 출발</button>
+      </form>
+
+      <div class="panel teacher-panel">
+        <h2>선생님</h2>
+        <p class="muted">게임방을 만들면 6개 모둠 코드가 자동으로 나와요.</p>
+        <button id="createRoomBtn" class="btn btn-navy" type="button">새 게임방 만들기</button>
+        <div id="resumeTeacher"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="app"></div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="overlay" class="overlay" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
