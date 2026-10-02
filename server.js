@@ -59,7 +59,42 @@ function freshCountry(id, groupCode) {
     stage: 0,
     inventory: { ...COUNTRIES[id].startInventory },
     stageTimes: [null, null, null],
+    savings: 0,      // 알뜰 수입으로 아낀 돈(억원)
+    credited: {},    // 시민 만족도에 반영된 수입품 개수 (물건별)
   };
+}
+
+// ---------- 시민 만족도 ----------
+// 필요한 물건을 기준 가격보다 싸게 수입하면 아낀 만큼 시민 만족도가 오릅니다.
+// 짜고 주고받기를 막기 위해 우리 시민에게 필요한 물건만, 필요한 개수까지만 셉니다.
+function needCap(id, good) {
+  return COUNTRIES[id].needs.filter((n) => n.good === good).reduce((a, n) => a + n.qty, 0);
+}
+function satisfaction(c) {
+  const fromStage = c.stage * SETTINGS.satPerStage;
+  const fromSaving = Math.min(SETTINGS.satSavingMax, Math.floor((c.savings || 0) / SETTINGS.savingPerPoint));
+  return { total: fromStage + fromSaving, fromStage, fromSaving };
+}
+// buyer가 gave를 내고 got을 받았을 때 아낀 돈을 계산해 반영하고, 늘어난 만족도(%)를 돌려줍니다.
+function creditSavings(buyer, gave, got) {
+  const units = Object.values(got.items).reduce((a, n) => a + n, 0);
+  if (!units) return 0;
+  const givenItems = Object.values(gave.items).reduce((a, n) => a + n, 0);
+  const cost = gave.cash + givenItems * SETTINGS.basePrice - got.cash;   // 실제로 치른 값
+  const unitPrice = cost / units;                                         // 1개당 값
+  const save = Math.max(0, SETTINGS.basePrice - unitPrice);
+  if (!save) return 0;
+  buyer.credited = buyer.credited || {};
+  const before = satisfaction(buyer).fromSaving;
+  for (const [g, n] of Object.entries(got.items)) {
+    const left = needCap(buyer.id, g) - (buyer.credited[g] || 0);
+    const k = Math.min(n, Math.max(0, left));
+    if (k > 0) {
+      buyer.credited[g] = (buyer.credited[g] || 0) + k;
+      buyer.savings = (buyer.savings || 0) + Math.round(k * save);
+    }
+  }
+  return satisfaction(buyer).fromSaving - before;
 }
 function createRoom() {
   const code = uniqueRoomCode();
@@ -156,7 +191,7 @@ function stateFor(room, role, me) {
   const countries = {};
   for (const id of COUNTRY_ORDER) {
     const c = room.countries[id];
-    countries[id] = { id, cash: c.cash, stage: c.stage, inventory: c.inventory, stageTimes: c.stageTimes, online: onlineCount(room, id) };
+    countries[id] = { id, cash: c.cash, stage: c.stage, inventory: c.inventory, stageTimes: c.stageTimes, online: onlineCount(room, id), savings: c.savings || 0, satisfaction: satisfaction(c) };
     if (role === 'teacher') countries[id].groupCode = c.groupCode;
   }
   const offers = role === 'teacher'
@@ -296,7 +331,11 @@ io.on('connection', (socket) => {
     move(from, to, o.give);
     move(to, from, o.want);
     o.status = 'accepted'; o.resolvedAt = Date.now();
-    addLog(room, { type: 'trade', from: o.from, to: o.to, give: o.give, want: o.want, kind: o.kind });
+    const satFrom = creditSavings(from, o.give, o.want);   // 제안한 나라: give를 내고 want를 받음
+    const satTo = creditSavings(to, o.want, o.give);       // 수락한 나라: want를 내고 give를 받음
+    addLog(room, { type: 'trade', from: o.from, to: o.to, give: o.give, want: o.want, kind: o.kind, satFrom, satTo });
+    if (satFrom > 0) toastTo(room, o.from, `😊 필요한 물건을 싸게 수입했어요! 시민 만족도 +${satFrom}%`, 'good');
+    if (satTo > 0) toastTo(room, o.to, `😊 필요한 물건을 싸게 수입했어요! 시민 만족도 +${satTo}%`, 'good');
     toastTo(room, o.from, `🤝 ${josa(COUNTRIES[me].name,'과','와')} 무역 성공!`, 'good');
     toastTo(room, o.to, `🤝 ${josa(COUNTRIES[o.from].name,'과','와')} 무역 성공!`, 'good');
     ok(ack); broadcast(room);
@@ -328,7 +367,7 @@ io.on('connection', (socket) => {
     country.stage += 1;
     country.cash += SETTINGS.levelBonus;
     addLog(room, { type: 'levelup', country: me, stage: country.stage, good: need.good, qty: need.qty });
-    io.to(`${room.code}:${me}`).emit('celebrate', { stage: country.stage, good: need.good, qty: need.qty });
+    io.to(`${room.code}:${me}`).emit('celebrate', { stage: country.stage, good: need.good, qty: need.qty, sat: SETTINGS.satPerStage });
     io.to(room.code).except(`${room.code}:${me}`).emit('toast', { text: `🎉 ${josa(COUNTRIES[me].name,'이','가')} 경제발전 ${country.stage}단계를 달성했어요!`, kind: 'good' });
     ok(ack); broadcast(room);
   });

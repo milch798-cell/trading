@@ -360,3 +360,24 @@ input, select {
 .need-bar i { position: absolute; inset: 0 auto 0 0; background: var(--cargo); transition: width .5s; }
 .need-bar span { position: relative; display: block; text-align: center; font-weight: 900; font-size: .82rem; line-height: 20px; }
 .comp-sd { display: block; font-family: var(--body); font-size: .72rem; color: var(--muted); }
+
+/* ---------- 시민 만족도 ---------- */
+.sat-bar { position: relative; display: flex; height: 18px; border: 2px solid var(--navy); border-radius: 99px; background: #fff; overflow: hidden; min-width: 90px; flex: 1; }
+.sat-bar.big { height: 34px; margin: 6px 0 10px; }
+.sat-bar i { display: block; height: 100%; transition: width .6s; }
+.seg-stage { background: #2DBE6C; }
+.seg-save { background: var(--cargo); }
+.sat-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: .74rem; color: var(--navy); text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.sat-bar.big span { font-family: var(--display); font-size: 1.15rem; }
+.sat-legend { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: .9rem; }
+.sat-legend .dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.nation-sat, .tn-sat { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; }
+.nation-sat small, .tn-sat small { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+.price-hint { margin: 6px 0 0; font-size: .86rem; padding: 6px 10px; border-radius: 10px; background: #EEF5F8; width: 100%; }
+.price-hint.cheap { background: #E3F6EA; color: #0E6B37; }
+.price-hint.dear { background: #FFF1E0; color: #8A3B00; }
+#gPrice { flex-basis: 100%; order: 3; }
+.chip-sat { background: #E3F6EA; border-color: #9BD8B2; }
+.sat-rank li { grid-template-columns: 26px auto 1fr; }
+.sat-award { text-align: center; font-family: var(--display); font-size: 1.3rem; margin: 8px 0 0; }
+.sat-rank .rank-n { grid-row: auto; }

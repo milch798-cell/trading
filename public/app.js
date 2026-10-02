@@ -41,6 +41,37 @@
   const invTotal = (inv) => Object.values(inv).reduce((a, b) => a + b, 0);
   const statusText = { lobby: '준비 중', playing: '무역 중', paused: '잠시 멈춤', ended: '게임 끝' };
 
+  // ---------- 시민 만족도 ----------
+  const satOf = (c) => c.satisfaction || { total: 0, fromStage: 0, fromSaving: 0 };
+  function satBar(c, big = false) {
+    const s = satOf(c);
+    return `<div class="sat-bar ${big ? 'big' : ''}" role="img" aria-label="시민 만족도 ${s.total}%">
+      <i class="seg-stage" style="width:${s.fromStage}%"></i><i class="seg-save" style="width:${s.fromSaving}%"></i>
+      <span>${s.total}%</span></div>`;
+  }
+  // 받는 물건 1개당 값(억원) — 물물교환은 주는 물건을 기준 가격으로 계산
+  function unitPrice(gave, got) {
+    const units = Object.values(got.items).reduce((a, n) => a + n, 0);
+    if (!units) return null;
+    const giveN = Object.values(gave.items).reduce((a, n) => a + n, 0);
+    return (gave.cash + giveN * CFG.SETTINGS.basePrice - got.cash) / units;
+  }
+  function priceHint(gave, got, me) {
+    const u = unitPrice(gave, got);
+    if (u == null) {   // 돈만 받고 물건을 파는 경우: 파는 나라(생산자)의 입장
+      const sold = Object.values(gave.items).reduce((a, n) => a + n, 0);
+      if (!sold || !got.cash) return '';
+      const per = Math.round((got.cash - gave.cash) / sold);
+      return `<p class="price-hint">💰 우리 물건을 1개당 약 <b>${per.toLocaleString()}억원</b>에 파는 셈이에요 (기준 ${CFG.SETTINGS.basePrice.toLocaleString()}억원).</p>`;
+    }
+    const base = CFG.SETTINGS.basePrice;
+    const needed = Object.keys(got.items).some((g) => C(me).needs.some((n) => n.good === g));
+    const val = `받는 물건 1개당 약 <b>${Math.round(u).toLocaleString()}억원</b> (기준 ${base.toLocaleString()}억원)`;
+    if (u < base) return `<p class="price-hint cheap">😊 ${val} → 알뜰 수입!${needed ? ' 시민 만족도가 올라요.' : ' (필요한 물건이 아니면 만족도는 그대로)'}</p>`;
+    if (u > base) return `<p class="price-hint dear">💸 ${val} → 기준 가격보다 비싸요.</p>`;
+    return `<p class="price-hint">${val} → 기준 가격과 같아요.</p>`;
+  }
+
   function timeLeft() {
     if (!state) return null;
     const t = state.timer;
@@ -50,6 +81,9 @@
   }
   const mmss = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
+  function satRanking() {
+    return CFG.COUNTRY_ORDER.map((id) => state.countries[id]).sort((a, b) => satOf(b).total - satOf(a).total || satOf(b).fromSaving - satOf(a).fromSaving);
+  }
   function ranking() {
     return CFG.COUNTRY_ORDER.map((id) => state.countries[id]).sort((a, b) => {
       if (b.stage !== a.stage) return b.stage - a.stage;
@@ -155,6 +189,7 @@
         <div class="tb-stats">
           <div class="stat"><small>경제발전</small><strong id="gStage"></strong></div>
           <div class="stat"><small>국가 자산</small><strong id="gCash"></strong></div>
+          <div class="stat"><small>시민 만족도</small><strong id="gSat"></strong></div>
           <div class="stat"><small>남은 시간</small><strong data-timer>--:--</strong></div>
           <span id="gStatus" class="status-pill"></span>
           <button id="gLeave" class="btn btn-ghost btn-sm on-color" type="button">나가기</button>
@@ -165,8 +200,12 @@
         <div class="col">
           <section class="panel">
             <h2>경제 발전 사다리</h2>
-            <p class="muted small">부족한 물건을 1번부터 차례대로 수입해 문제를 해결하면 경제가 1단계씩 발전하고 국가 자산이 1조원씩 늘어요.</p>
+            <p class="muted small">부족한 물건을 1번부터 차례대로 수입해 문제를 해결하면 경제가 1단계씩 발전하고 국가 자산이 1조원씩, 시민 만족도가 20%씩 늘어요.</p>
             <ol id="gLadder" class="ladder"></ol>
+          </section>
+          <section class="panel">
+            <h2>시민 만족도</h2>
+            <div id="gSatPanel"></div>
           </section>
           <section class="panel">
             <h2>우리 창고</h2>
@@ -190,6 +229,7 @@
             </label>
             <div class="compose-foot">
               <span id="gKind" class="kind-badge"></span>
+              <span id="gPrice"></span>
               <button id="gSend" class="btn btn-go" type="button">제안 보내기</button>
             </div>
           </section>
@@ -251,6 +291,14 @@
     const me = state.me, mine = state.countries[me], info = C(me);
     $('#gStage').textContent = CFG.SETTINGS.stageNames[mine.stage];
     $('#gCash').textContent = won(mine.cash);
+    $('#gSat').textContent = `${satOf(mine).total}%`;
+    const st = satOf(mine), S = CFG.SETTINGS;
+    $('#gSatPanel').innerHTML = `${satBar(mine, true)}
+      <ul class="sat-legend">
+        <li><i class="dot seg-stage"></i>필요한 물건으로 문제 해결 <b>${st.fromStage}%</b> <small>(단계마다 +${S.satPerStage}%, 최대 ${S.satPerStage * 3}%)</small></li>
+        <li><i class="dot seg-save"></i>알뜰 수입 <b>${st.fromSaving}%</b> <small>(아낀 돈 ${won(mine.savings || 0)} · ${S.savingPerPoint}억원마다 +1%, 최대 ${S.satSavingMax}%)</small></li>
+      </ul>
+      <p class="muted small">필요한 물건을 기준 가격(1개 ${S.basePrice.toLocaleString()}억원)보다 싸게 수입하면 시민이 이익을 봐요. 파는 나라가 여럿인 물건은 조건을 비교해 보세요!</p>`;
     const pill = $('#gStatus'); pill.textContent = statusText[state.status]; pill.dataset.s = state.status;
     $('#gNotice').innerHTML = state.notice ? `<div class="notice">📢 ${esc(state.notice.text)}</div>` : '';
     if (state.status !== 'playing') $('#gNotice').innerHTML += `<div class="notice notice-soft">${state.status === 'lobby' ? '선생님이 무역 시작을 누르면 거래할 수 있어요. 그동안 우리 나라에 무엇이 부족한지 살펴보세요.' : state.status === 'paused' ? '무역이 잠시 멈췄어요. 선생님 말씀을 들어요.' : '게임이 끝났어요.'}</div>`;
@@ -297,6 +345,7 @@
           <div class="swap-arrow" aria-hidden="true">⇄</div>
           <div><small>우리가 줄 것</small>${bundleHTML(o.want)}</div>
         </div>
+        ${priceHint(o.want, o.give, me)}
         <footer>
           <button class="btn btn-go btn-sm" data-offer="${o.id}" data-act="accept" ${lacking || state.status !== 'playing' ? 'disabled' : ''}>수락</button>
           <button class="btn btn-ghost btn-sm" data-offer="${o.id}" data-act="reject">거절</button>
@@ -326,6 +375,7 @@
       const wantsMine = theirNeed && (mine.inventory[theirNeed] || 0) > 0;
       return `<article class="nation" style="--c:${ci.color};--ci:${ci.ink}">
         <header><b>${esc(ci.name)}</b>${stagePips(c.stage)}${c.online ? '<span class="online" title="접속 중"></span>' : ''}</header>
+        <div class="nation-sat"><small>시민 만족도</small>${satBar(c)}</div>
         <p class="nation-need">지금 필요한 것: ${theirNeed ? `<b>${G(theirNeed).icon} ${esc(G(theirNeed).name)} ${theirNeedObj.qty}개</b> <small>(${Math.min(c.inventory[theirNeed] || 0, theirNeedObj.qty)}개 모음)</small>` : '<b>모두 해결!</b>'}</p>
         <div class="mini-inv">${Object.entries(c.inventory).map(([g, n]) => `<span title="${esc(G(g).name)}">${G(g).icon}<sub>${n}</sub></span>`).join('') || '<span class="muted small">창고 비었음</span>'}</div>
         ${hasMyNeed ? `<p class="match good">우리에게 필요한 ${esc(G(myNeed).name)} ${c.inventory[myNeed]}개가 있어요!</p>` : ''}
@@ -345,7 +395,7 @@
       `<button type="button" class="partner ${draft.to === id ? 'sel' : ''}" data-partner="${id}" style="--c:${C(id).color};--ci:${C(id).ink}">${esc(C(id).name)}</button>`).join('');
     if (!draft.to) {
       $('#gComposeBody').innerHTML = `<p class="empty">거래할 나라를 먼저 골라요.</p>`;
-      $('#gKind').textContent = ''; $('#gSend').disabled = true; return;
+      $('#gKind').textContent = ''; $('#gPrice').innerHTML = ''; $('#gSend').disabled = true; return;
     }
     const them = state.countries[draft.to];
     // 창고가 바뀌면 고른 수량을 맞춰요
@@ -387,25 +437,29 @@
     let kind = '';
     if (ready) kind = !draft.give.cash && !draft.want.cash ? '물물교환' : ((gi === 0 && !draft.want.cash) || (wi === 0 && !draft.give.cash)) ? '현금거래' : '물건+현금';
     $('#gKind').textContent = kind ? `${kind} 제안` : '주는 것과 받는 것을 골라요';
+    $('#gPrice').innerHTML = ready ? priceHint(draft.give, draft.want, me) : '';
     $('#gSend').disabled = !ready || state.status !== 'playing';
   }
 
   function renderNews(el, n) {
     const items = state.log.slice(-n).reverse();
     el.innerHTML = items.map((e) => {
-      if (e.type === 'trade') return `<li>${countryTag(e.from, 'sm')} ${bundleHTML(e.give)} ⇄ ${bundleHTML(e.want)} ${countryTag(e.to, 'sm')}</li>`;
+      if (e.type === 'trade') {
+        const sat = [[e.from, e.satFrom], [e.to, e.satTo]].filter(([, v]) => v > 0).map(([id, v]) => `<span class="chip chip-sat">😊 ${esc(C(id).name)} +${v}%</span>`).join('');
+        return `<li>${countryTag(e.from, 'sm')} ${bundleHTML(e.give)} ⇄ ${bundleHTML(e.want)} ${countryTag(e.to, 'sm')} ${sat}</li>`;
+      }
       if (e.type === 'levelup') return `<li class="news-up">🎉 ${countryTag(e.country, 'sm')} ${esc(G(e.good).name)} ${e.qty || 1}개 수입으로 경제발전 <b>${e.stage}단계</b> 달성!</li>`;
       return `<li class="news-sys">${esc(e.text)}</li>`;
     }).join('') || '<li class="empty">아직 소식이 없어요.</li>';
   }
 
-  function celebrate({ stage, good, qty }) {
+  function celebrate({ stage, good, qty, sat }) {
     const o = $('#overlay');
     o.innerHTML = `<div class="celebrate">
       <div class="burst" aria-hidden="true">${Array.from('🎉🚢💰✨'.repeat(4)).map((e, i) => `<span style="--i:${i}">${e}</span>`).join('')}</div>
       <p class="cel-good">${G(good).icon}</p>
       <h2>경제발전 ${stage}단계 달성!</h2>
-      <p>${esc(G(good).name)} ${qty || 1}개를 수입해서 문제를 해결했어요.<br/>국가 자산이 <b>1조원</b> 늘었어요.</p>
+      <p>${esc(G(good).name)} ${qty || 1}개를 수입해서 문제를 해결했어요.<br/>국가 자산이 <b>1조원</b>, 시민 만족도가 <b>${sat || 20}%</b> 늘었어요.</p>
       ${stage >= 3 ? '<p class="cel-final">🏆 우리 나라는 이제 무역 강국!</p>' : ''}
       <button class="btn btn-go" type="button">계속하기</button></div>`;
     o.hidden = false;
@@ -448,7 +502,8 @@
       </section>
       <main class="teacher-grid">
         <section class="nations-row" id="tNations"></section>
-        <section class="panel t-rank"><h2>순위</h2><ol id="tRank" class="rank"></ol></section>
+        <section class="panel t-rank"><h2>순위 <small class="muted">경제발전 기준</small></h2><ol id="tRank" class="rank"></ol>
+          <h3>😊 시민 만족도</h3><ol id="tSatRank" class="rank sat-rank"></ol></section>
         <section class="panel t-net"><h2>무역 연결망 <small class="muted">선이 굵을수록 서로 많이 의존해요</small></h2><div id="tNet"></div></section>
         <section class="panel t-comp"><h2>경쟁 보드 <small class="muted">같은 물건을 여러 나라가 팔거나 사려 해요</small></h2><div id="tComp"></div></section>
         <section class="panel t-news"><h2>무역 소식 <small class="muted" id="tPending"></small></h2><ul id="tNews" class="news"></ul></section>
@@ -501,6 +556,7 @@
       return `<article class="t-nation" style="--c:${ci.color};--ci:${ci.ink}">
         <header><b>${esc(ci.name)}</b><span class="code ${showCodes ? '' : 'blur'}" title="모둠 코드">${showCodes ? c.groupCode : '••••'}</span></header>
         <div class="tn-row">${stagePips(c.stage)}<span class="tn-cash">${won(c.cash)}</span></div>
+        <div class="tn-sat"><small>시민 만족도</small>${satBar(c)}</div>
         <p class="tn-need">${need ? `다음 과제: ${G(need).icon} ${esc(G(need).name)} <b>${Math.min(c.inventory[need] || 0, needObj.qty)}/${needObj.qty}</b>` : '🏆 3단계 달성'}</p>
         <div class="mini-inv">${Object.entries(c.inventory).map(([g, n]) => `<span title="${esc(G(g).name)}">${G(g).icon}<sub>${n}</sub></span>`).join('') || '<span class="small">비었음</span>'}</div>
         <p class="tn-online">${c.online ? `● 기기 ${c.online}대 접속` : '○ 접속 전'}</p>
@@ -511,6 +567,7 @@
       <span class="rank-n">${i + 1}</span>${countryTag(c.id)}
       <span class="rank-bar"><i style="width:${(c.stage / 3) * 100}%;--c:${C(c.id).color}"></i></span>
       <span class="rank-stage">${c.stage}단계</span><span class="rank-cash">${won(c.cash)}</span></li>`).join('');
+    $('#tSatRank').innerHTML = satRanking().map((c, i) => `<li><span class="rank-n">${i + 1}</span>${countryTag(c.id)}${satBar(c)}</li>`).join('');
 
     renderNetwork();
     renderCompetition();
@@ -588,7 +645,9 @@
     el.innerHTML = `
       <h2>🏁 무역왕 결과 발표</h2>
       <ol class="podium">${r.map((c, i) => `<li class="p${i + 1}" style="--c:${C(c.id).color};--ci:${C(c.id).ink}">
-        <span class="p-rank">${i + 1}위</span><b>${esc(C(c.id).name)}</b><span>${CFG.SETTINGS.stageNames[c.stage]}</span><span>${won(c.cash)}</span></li>`).join('')}</ol>
+        <span class="p-rank">${i + 1}위</span><b>${esc(C(c.id).name)}</b><span>${CFG.SETTINGS.stageNames[c.stage]}</span><span>${won(c.cash)}</span><span>😊 ${satOf(c).total}%</span></li>`).join('')}</ol>
+      ${(() => { const top = satRanking()[0]; const best = satOf(top).total; const tops = satRanking().filter((c) => satOf(c).total === best);
+        return best > 0 ? `<p class="sat-award">😊 시민 만족 1등: ${tops.map((c) => countryTag(c.id)).join(' ')} <b>${best}%</b></p>` : ''; })()}
       <p class="muted center">오늘 여섯 나라는 모두 <b>${tradeCount}번</b> 무역했어요.</p>
       ${mineLine}
       <div class="reflect">
@@ -597,6 +656,7 @@
           <li>우리 나라는 왜 다른 나라와 무역을 해야 했나요? (자연환경, 기술, 자원의 차이)</li>
           <li>우리 나라는 어떤 나라에 <b>의존</b>했고, 어떤 나라가 우리에게 의존했나요?</li>
           <li>같은 물건을 파는 나라가 여럿일 때, 어떻게 <b>경쟁</b>했나요?</li>
+          <li>경쟁이 있을 때 물건값은 어떻게 되었나요? 무역은 <b>시민(소비자)</b>에게 어떤 이익을 주었나요?</li>
           <li>세계 여러 나라는 무역을 통해 ○○하고 ○○합니다. 빈칸을 채워 보세요.</li>
         </ol>
       </div>`;

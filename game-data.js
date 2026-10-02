@@ -22,7 +22,7 @@ const COUNTRY_ORDER = ['red', 'blue', 'yellow', 'green', 'purple', 'pink'];
 // needs: 부족한 물건 1번 → 2번 → 3번 순서로, qty개를 모두 모아야 그 단계를 해결합니다.
 //
 // 수량 설계: 한 나라만 파는데 두 나라가 사려는 물건(석유·와인·자동차·커피)은 공급 = 수요 → 구매 경쟁
-//           두 나라가 파는 물건(옷·배·쌀·바나나)은 공급 > 수요 → 판매 경쟁
+//           두 나라가 파는 물건(옷·배·쌀·바나나·컴퓨터·소고기)은 공급 > 수요 → 판매 경쟁
 const COUNTRIES = {
   red: {
     name: '빨강 나라', color: '#E03A3A', ink: '#FFFFFF',
@@ -59,9 +59,9 @@ const COUNTRIES = {
   },
   green: {
     name: '초록 나라', color: '#23964A', ink: '#FFFFFF',
-    rich: ['넓은 평야지역에서 쌀이 많이 생산된다.', '국토가 넓어 여러 기후가 존재하여 포도와 바나나 농사가 모두 잘 되어 와인과 바나나가 유명하다.'],
-    startInventory: { rice: 4, banana: 4, wine: 7 },
-    produces: ['wine', 'rice', 'banana'],
+    rich: ['넓은 평야지역에서 쌀이 많이 생산된다.', '국토가 넓어 여러 기후가 존재하여 포도와 바나나 농사가 모두 잘 되어 와인과 바나나가 유명하다.', '넓은 초원에서 가축을 길러 소고기도 생산한다.'],
+    startInventory: { rice: 4, banana: 4, wine: 7, beef: 3 },
+    produces: ['wine', 'rice', 'banana', 'beef'],
     needs: [
       { good: 'ship',   qty: 5, text: '무역을 많이 하기 때문에 배(조선)가 많이 필요하고 수입도 많이 한다.' },
       { good: 'rubber', qty: 4, text: '고무나무를 키울 수 없어 수입해야 한다.' },
@@ -70,9 +70,9 @@ const COUNTRIES = {
   },
   purple: {
     name: '보라 나라', color: '#8440B8', ink: '#FFFFFF',
-    rich: ['기술력이 높으며 특히 자동차 산업과 조선(배)산업이 발달했다.', '인구도 많아 경공업(옷 등)의 생산량이 많다.'],
-    startInventory: { clothes: 5, ship: 4, car: 8 },
-    produces: ['clothes', 'ship', 'car'],
+    rich: ['기술력이 높으며 특히 자동차 산업과 조선(배)산업이 발달했다.', '인구도 많아 경공업(옷 등)의 생산량이 많다.', '높은 기술력으로 컴퓨터도 만든다.'],
+    startInventory: { clothes: 5, ship: 4, car: 8, computer: 3 },
+    produces: ['clothes', 'ship', 'car', 'computer'],
     needs: [
       { good: 'rice',   qty: 6, text: '논과 밭이 없어 주식인 쌀을 대부분 수입한다.' },
       { good: 'coffee', qty: 4, text: '커피 소비량이 높은 편이나 지형적 요인으로 커피 재배가 불가능하다.' },
@@ -98,6 +98,11 @@ const SETTINGS = {
   levelBonus: 10000,    // 경제발전 1단계마다 +1조원
   maxPendingOffers: 8,  // 한 나라가 동시에 보낼 수 있는 제안 수
   stageNames: ['출발', '1단계 성장', '2단계 발전', '3단계 무역 강국'],
+  // 시민 만족도 (0~100%): 무역이 소비자(시민)에게 주는 이익
+  basePrice: 1000,        // 기준 가격: 물건 1개 = 1,000억원 (물물교환도 이 값으로 계산)
+  satPerStage: 20,        // 부족 물건 문제를 해결할 때마다 +20% (3단계 = 60%)
+  savingPerPoint: 100,    // 기준 가격보다 아낀 100억원마다 +1%
+  satSavingMax: 40,       // 알뜰 수입으로 오를 수 있는 최대치 40%
 };
 
 module.exports = { GOODS, COUNTRIES, COUNTRY_ORDER, SETTINGS };
