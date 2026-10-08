@@ -22,7 +22,7 @@ const COUNTRY_ORDER = ['red', 'blue', 'yellow', 'green', 'purple', 'pink'];
 // needs: 부족한 물건 1번 → 2번 → 3번 순서로, qty개를 모두 모아야 그 단계를 해결합니다.
 //
 // 수량 설계: 한 나라만 파는데 두 나라가 사려는 물건(석유·와인·자동차·커피)은 공급 = 수요 → 구매 경쟁
-//           두 나라가 파는 물건(옷·배·쌀·바나나·컴퓨터·소고기)은 공급 > 수요 → 판매 경쟁
+//           두 나라가 파는 물건(옷·배·쌀·바나나·컴퓨터·소고기·핸드폰)은 공급 > 수요 → 판매 경쟁
 const COUNTRIES = {
   red: {
     name: '빨강 나라', color: '#E03A3A', ink: '#FFFFFF',
@@ -38,7 +38,7 @@ const COUNTRIES = {
   blue: {
     name: '파랑 나라', color: '#1F63D6', ink: '#FFFFFF',
     rich: ['기술이 발달하여 전자제품(컴퓨터 등)을 잘 만들고, IT산업이 발달하여 핸드폰 수출을 많이 한다.', '조선(배)산업이 발달하였다.'],
-    startInventory: { phone: 4, computer: 6, ship: 4 },
+    startInventory: { phone: 3, computer: 6, ship: 4 },
     produces: ['phone', 'ship', 'computer'],
     needs: [
       { good: 'oil',    qty: 5, text: '지하자원(석유)이 부족하여 대부분 수입해야 한다.' },
@@ -49,7 +49,7 @@ const COUNTRIES = {
   yellow: {
     name: '노랑 나라', color: '#F2B400', ink: '#2A2000',
     rich: ['열대기후로 각종 열대과일(바나나 등)과 고무가 많이 생산된다.', '넓은 평야지역에서 쌀이 많이 생산된다.'],
-    startInventory: { rice: 4, banana: 5, rubber: 5 },
+    startInventory: { rice: 5, banana: 5, rubber: 5 },
     produces: ['rice', 'banana', 'rubber'],
     needs: [
       { good: 'computer', qty: 5, text: '기술력이 부족하여 가전제품(컴퓨터) 대부분을 수입한다.' },
@@ -81,9 +81,9 @@ const COUNTRIES = {
   },
   pink: {
     name: '분홍 나라', color: '#E0428E', ink: '#FFFFFF',
-    rich: ['노동력이 풍부하며 옷 공장이 많다.', '고도가 높은 지형이 있어 커피가 많이 재배된다.'],
-    startInventory: { clothes: 5, coffee: 7 },
-    produces: ['coffee', 'clothes'],
+    rich: ['노동력이 풍부하며 옷 공장이 많다.', '고도가 높은 지형이 있어 커피가 많이 재배된다.', '노동력이 풍부해 핸드폰을 조립하는 공장도 많다.'],
+    startInventory: { clothes: 5, coffee: 7, phone: 3 },
+    produces: ['coffee', 'clothes', 'phone'],
     needs: [
       { good: 'beef',   qty: 6, text: '인구가 많아 농축산물(소고기 등)에 대한 수요가 많다.' },
       { good: 'car',    qty: 3, text: '자동차 산업이 발달하지 않아 자동차를 수입한다.' },
